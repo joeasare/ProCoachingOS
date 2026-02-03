@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en" class="dark antialiased">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PitchControl | Pro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['Inter', 'sans-serif'],
+              display: ['Inter', 'sans-serif'],
+            },
+            colors: {
+              // Semantic tokens that adapt to theme
+              background: "var(--background)",
+              surface: "var(--surface)",
+              glass: "var(--glass)",
+              border: "var(--border)",
+              primary: "var(--primary)",
+              "primary-foreground": "var(--primary-foreground)",
+            }
+          }
+        }
+      }
+    </script>
+    <style>
+      :root {
+        /* Light Mode Defaults */
+        --background: #F4F4F5;
+        --surface: #FFFFFF;
+        --glass: rgba(255, 255, 255, 0.7);
+        --glass-hover: rgba(0, 0, 0, 0.05);
+        --border: #E4E4E7;
+        --text-primary: #18181B;
+        --text-secondary: #71717A;
+        --primary: #E11D48; /* Rose-600 */
+        --primary-foreground: #FFFFFF;
+      }
+
+      .dark {
+        /* Dark Mode Defaults */
+        --background: #09090b;
+        --surface: #18181b;
+        --glass: rgba(255, 255, 255, 0.03);
+        --glass-hover: rgba(255, 255, 255, 0.08);
+        --border: #27272a;
+        --text-primary: #FFFFFF;
+        --text-secondary: #A1A1AA;
+        --primary: #E11D48; /* Rose-600 - High Fashion / Sporty */
+        --primary-foreground: #FFFFFF;
+      }
+
+      body {
+        font-family: 'Inter', sans-serif;
+        overflow-x: hidden;
+        background-color: var(--background);
+        color: var(--text-primary);
+        transition: background-color 0.3s ease, color 0.3s ease;
+      }
+      
+      /* Utilities */
+      .glass-panel {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        transition: background-color 0.2s ease, border-color 0.2s ease;
+      }
+      
+      .glass-panel-transparent {
+        background: var(--glass);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 1px solid var(--border);
+      }
+
+      /* Ultra-thin scrollbar */
+      ::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+      }
+      ::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: var(--border);
+        border-radius: 3px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: var(--text-secondary);
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
+    "react/": "https://esm.sh/react@^19.2.4/",
+    "react": "https://esm.sh/react@^19.2.4",
+    "react-router-dom": "https://esm.sh/react-router-dom@^7.13.0",
+    "@react-three/fiber": "https://esm.sh/@react-three/fiber@^9.5.0",
+    "three": "https://esm.sh/three@^0.182.0",
+    "lucide-react": "https://esm.sh/lucide-react@^0.563.0",
+    "framer-motion": "https://esm.sh/framer-motion@^12.29.2",
+    "@react-three/drei": "https://esm.sh/@react-three/drei@^10.7.7"
+  }
+}
+</script>
+</head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>
