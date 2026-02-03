@@ -7,6 +7,32 @@ import {
     Film, Play, Pause, Plus, SkipBack, Save, FastForward, Rewind, Target, Flame, Share2, Type
 } from 'lucide-react';
 
+// Fix for missing R3F types in this environment
+declare global {
+  namespace JSX {
+    interface IntrinsicElements {
+      group: any;
+      mesh: any;
+      planeGeometry: any;
+      meshStandardMaterial: any;
+      line: any;
+      bufferGeometry: any;
+      float32BufferAttribute: any;
+      lineBasicMaterial: any;
+      ringGeometry: any;
+      meshBasicMaterial: any;
+      cylinderGeometry: any;
+      coneGeometry: any;
+      sphereGeometry: any;
+      circleGeometry: any;
+      color: any;
+      fog: any;
+      ambientLight: any;
+      spotLight: any;
+    }
+  }
+}
+
 // --- Constants & Types ---
 
 const UMD_RED = '#E03A3E';

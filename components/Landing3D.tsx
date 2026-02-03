@@ -3,6 +3,22 @@ import { Canvas, useFrame } from '@react-three/fiber';
 import { Float, Environment } from '@react-three/drei';
 import * as THREE from 'three';
 
+// Fix for missing R3F types in this environment
+declare global {
+  namespace JSX {
+    interface IntrinsicElements {
+      group: any;
+      mesh: any;
+      icosahedronGeometry: any;
+      meshBasicMaterial: any;
+      meshStandardMaterial: any;
+      ringGeometry: any;
+      fog: any;
+      ambientLight: any;
+    }
+  }
+}
+
 const WireframeBall = ({ theme }: { theme: 'dark' | 'light' }) => {
   const meshRef = useRef<THREE.Group>(null);
   const wireColor = theme === 'dark' ? '#ffffff' : '#18181B';

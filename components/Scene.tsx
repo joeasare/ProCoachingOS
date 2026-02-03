@@ -3,6 +3,21 @@ import { Canvas, useFrame } from '@react-three/fiber';
 import { Float, Environment, ContactShadows, PresentationControls } from '@react-three/drei';
 import * as THREE from 'three';
 
+// Fix for missing R3F types in this environment
+declare global {
+  namespace JSX {
+    interface IntrinsicElements {
+      group: any;
+      mesh: any;
+      torusKnotGeometry: any;
+      meshPhysicalMaterial: any;
+      meshBasicMaterial: any;
+      ambientLight: any;
+      spotLight: any;
+    }
+  }
+}
+
 const FloatingObject = () => {
   const groupRef = useRef<THREE.Group>(null);
 
