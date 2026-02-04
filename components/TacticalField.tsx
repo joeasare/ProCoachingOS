@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { Text, useCursor, OrbitControls, Html, Line, Cylinder, Circle } from '@react-three/drei';
@@ -13,22 +14,43 @@ declare global {
     interface IntrinsicElements {
       group: any;
       mesh: any;
-      planeGeometry: any;
-      meshStandardMaterial: any;
       line: any;
+      lineLoop: any;
+      lineSegments: any;
+      pointLight: any;
+      directionalLight: any;
+      spotLight: any;
+      ambientLight: any;
+      fog: any;
+      color: any;
+      // Geometries
+      planeGeometry: any;
       bufferGeometry: any;
-      float32BufferAttribute: any;
-      lineBasicMaterial: any;
-      ringGeometry: any;
-      meshBasicMaterial: any;
+      boxGeometry: any;
+      sphereGeometry: any;
       cylinderGeometry: any;
       coneGeometry: any;
-      sphereGeometry: any;
       circleGeometry: any;
-      color: any;
-      fog: any;
-      ambientLight: any;
-      spotLight: any;
+      ringGeometry: any;
+      torusKnotGeometry: any;
+      icosahedronGeometry: any;
+      // Materials
+      meshStandardMaterial: any;
+      meshBasicMaterial: any;
+      meshPhysicalMaterial: any;
+      lineBasicMaterial: any;
+      // Attributes
+      float32BufferAttribute: any;
+      // Catch-all
+      [elemName: string]: any;
+    }
+  }
+  // Support for React 18+ JSX namespace
+  namespace React {
+    namespace JSX {
+      interface IntrinsicElements {
+        [elemName: string]: any;
+      }
     }
   }
 }
@@ -301,7 +323,7 @@ const ObjectMarker = ({ type, position, isSelected, onPointerDown, isAnimating }
 const TextMarker = ({ id, text, position, isSelected, onPointerDown, isAnimating, activeTool, onUpdateText }: any) => {
     const [hovered, setHover] = useState(false);
     const groupRef = useRef<THREE.Group>(null);
-    useCursor(hovered, 'text', 'auto');
+    useCursor(hovered, activeTool === 'text' ? 'text' : 'grab', 'auto');
 
     useFrame((state, delta) => {
         if (groupRef.current && position) {
@@ -315,8 +337,8 @@ const TextMarker = ({ id, text, position, isSelected, onPointerDown, isAnimating
         if (activeTool === 'text') {
             e.stopPropagation();
             const newText = prompt("Update label:", text);
-            if (newText) {
-                onUpdateText(id, newText);
+            if (newText !== null) { 
+                onUpdateText(id, newText || " "); // Allow space to keep it selectable if desired, or just new text
             }
         } else {
             onPointerDown(e);
@@ -329,6 +351,12 @@ const TextMarker = ({ id, text, position, isSelected, onPointerDown, isAnimating
             onPointerOut={() => setHover(false)}
             onPointerDown={handleClick}
         >
+             {/* Hit Plane for easier selection - crucial for text interaction */}
+             <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]} visible={false}>
+                 <planeGeometry args={[text.length * 0.8 + 2, 3]} />
+                 <meshBasicMaterial />
+             </mesh>
+
              <Text
                 position={[0, 0.2, 0]}
                 rotation={[-Math.PI / 2, 0, 0]}
@@ -343,7 +371,7 @@ const TextMarker = ({ id, text, position, isSelected, onPointerDown, isAnimating
             </Text>
             {isSelected && !isAnimating && (
                 <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.05, 0]}>
-                     <planeGeometry args={[text.length * 1.5, 3]} />
+                     <planeGeometry args={[text.length * 1.5 + 1, 3]} />
                      <meshBasicMaterial color={UMD_GOLD} opacity={0.2} transparent />
                 </mesh>
             )}
@@ -1061,6 +1089,7 @@ const TacticalField: React.FC<TacticalFieldProps> = ({
                 maxDistance={120}
                 enableDamping={true}
                 dampingFactor={0.08}
+                enabled={!simulationMode && !isKeyframePlaying} // Lock interactions during simulation
             />
         )}
 

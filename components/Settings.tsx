@@ -1,9 +1,10 @@
+
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
     HelpCircle, ChevronDown, 
     Moon, Sun, Volume2, Smartphone, Terminal, Shield, 
-    ChevronRight, Search, Workflow, MessageSquare
+    ChevronRight, Search, Workflow, MessageSquare, Cpu, Database, Signal
 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { useNavigate } from 'react-router-dom';
@@ -30,9 +31,14 @@ interface UseCaseItem {
 
 const FAQS: FAQItem[] = [
     {
-        category: 'Tactical Board',
-        question: "How do I control the 3D camera?",
-        answer: "Use Left-Click to rotate the pitch. Right-Click to pan. Scroll to zoom in/out. In 'Animation Mode', the camera locks to a cinematic perspective automatically."
+        category: 'Transfer Portal',
+        question: "How does the Smart Scout AI work?",
+        answer: "The Smart Scout utilizes Google's Gemini 3 Flash models to aggregate and analyze unstructured data from social media (X/Twitter), news outlets, and NCAA portals. It identifies potential targets in real-time and structures the data for comparison."
+    },
+    {
+        category: 'Dashboard',
+        question: "How is the real-time RPI calculated?",
+        answer: "The system runs a live weighted algorithm (25% WP, 50% OWP, 25% OOWP) based on the matches logged in the Schedule. It provides a live projection calibrated to the 2025 season dataset, which may differ slightly from official weekly NCAA releases."
     },
     {
         category: 'Tactical Board',
@@ -45,11 +51,6 @@ const FAQS: FAQItem[] = [
         answer: "Acute:Chronic Workload Ratio. It divides the player's workload over the last 7 days by the average of the last 28 days. A value between 0.8 and 1.3 is optimal for injury prevention."
     },
     {
-        category: 'Roster Management',
-        question: "How is 'Sleep Quality' calculated?",
-        answer: "This data is synchronized from wearable devices (WHOOP/Oura) via the API integration. It is normalized to a 0-100 scale where 100 represents optimal recovery."
-    },
-    {
         category: 'General',
         question: "Can I export match reports?",
         answer: "Yes. Navigate to the Dashboard, select 'Season View', and click the 'Export Stats' button. This generates a CSV file containing all aggregated player performance metrics."
@@ -59,10 +60,23 @@ const FAQS: FAQItem[] = [
 const USE_CASES: UseCaseItem[] = [
     {
         id: 'uc1',
+        title: 'Recruitment Pipeline',
+        description: 'End-to-end workflow for identifying, tracking, and signing transfer targets using AI tools.',
+        steps: [
+            'Launch [Transfer Portal] and run a "Smart Scout" scan for specific positions.',
+            'Filter results by "Available" and add top prospects to "Saved Scouts".',
+            'Open candidate profile to view "Contact Strategy" workflow.',
+            'Update status from "Identified" to "Contacted" after initial outreach.',
+            'Use the "Compare" feature to benchmark targets against your current roster.'
+        ],
+        route: '/transfers'
+    },
+    {
+        id: 'uc2',
         title: 'Opponent Preparation',
         description: 'Standard operating procedure for analyzing upcoming opposition and preparing the squad tactically.',
         steps: [
-            'Navigate to [Dashboard] to review opponent form guide.',
+            'Navigate to [Dashboard] to review opponent form guide and RPI status.',
             'Open [Tactics Board] and set Opponent Formation (e.g., 4-4-2).',
             'Toggle "Heatmap Layer" to identify opponent pressing zones.',
             'Design counter-strategy and save as "Match Prep" keyframes.',
@@ -71,7 +85,7 @@ const USE_CASES: UseCaseItem[] = [
         route: '/tactics'
     },
     {
-        id: 'uc2',
+        id: 'uc3',
         title: 'Injury Rehabilitation',
         description: 'Workflow for managing player return-to-play protocols using bio-metric data.',
         steps: [
@@ -84,43 +98,17 @@ const USE_CASES: UseCaseItem[] = [
         route: '/roster'
     },
     {
-        id: 'uc3',
-        title: 'Post-Match Analysis',
-        description: 'Deconstructing game performance using the match reporting suite.',
-        steps: [
-            'Enter [Schedule] and select the completed match.',
-            'Upload game footage to the Media Gallery.',
-            'Use the "Timeline Scrubber" to tag key events (Goals, Shots).',
-            'Compare "xG" vs "Actual Goals" in the Stats tab.',
-            'Export Match Report CSV for the technical director.'
-        ],
-        route: '/schedule'
-    },
-    {
         id: 'uc4',
-        title: 'Set Piece Laboratory',
-        description: 'Designing and exporting dead-ball routines for training implementation.',
+        title: 'Session Design',
+        description: 'Creating and distributing training sessions based on tactical needs.',
         steps: [
-            'Open [Tactics Board] and enter "Draw Mode" (Pen Tool).',
-            'Clear the pitch and position attackers in the box.',
-            'Use "Cone" tool to mark delivery zones.',
-            'Animate player runs using the [Animation Studio].',
-            'Capture screenshot and upload to [Drill Library] as a custom drill.'
+            'Access [Drill Library] to review available exercises.',
+            'Navigate to [Practice Plan] to build the timeline.',
+            'Drag and drop drills or add "Custom Blocks" for specific needs.',
+            'Ensure total duration matches the "Load Management" targets.',
+            'Save plan and distribute to staff tablets.'
         ],
-        route: '/tactics'
-    },
-    {
-        id: 'uc5',
-        title: 'Team Communication',
-        description: 'Protocols for internal messaging, announcements, and direct player feedback via the secure channel.',
-        steps: [
-            'Navigate to [Team Comms] via the sidebar.',
-            'Select the #announcements channel for squad-wide updates.',
-            'Post the weekly schedule or video analysis links.',
-            'Check Direct Messages for injury status updates from the Physio staff.',
-            'Use the "Poll" feature to gauge squad fatigue levels.'
-        ],
-        route: '/team'
+        route: '/planning'
     }
 ];
 
@@ -168,7 +156,7 @@ const UseCaseCard: React.FC<{ item: UseCaseItem, index: number }> = ({ item, ind
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: index * 0.1 }}
-            className="glass-panel p-6 rounded-xl border border-border"
+            className="glass-panel p-6 rounded-xl border border-border flex flex-col h-full"
         >
             <div className="flex items-center gap-3 mb-4">
                 <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xs border border-primary/20">
@@ -180,7 +168,7 @@ const UseCaseCard: React.FC<{ item: UseCaseItem, index: number }> = ({ item, ind
                 {item.description}
             </p>
             
-            <div className="space-y-4">
+            <div className="space-y-4 flex-1">
                 {item.steps.map((step, i) => (
                     <div key={i} className="flex gap-4 relative">
                         {/* Vertical Line */}
@@ -228,7 +216,7 @@ const Settings: React.FC = () => {
              {/* Header */}
             <div className="mb-12">
                 <h1 className="text-3xl font-semibold text-[var(--text-primary)] tracking-tight">Support & Configuration</h1>
-                <p className="text-[var(--text-secondary)] text-sm mt-1">System preferences and operational knowledge base.</p>
+                <p className="text-[var(--text-secondary)] text-sm mt-1">System preferences, operational knowledge base, and AI diagnostics.</p>
             </div>
 
             {/* Navigation Tabs */}
@@ -338,6 +326,32 @@ const Settings: React.FC = () => {
                         className="max-w-2xl"
                     >
                         <div className="space-y-6">
+                            {/* Intelligence & AI */}
+                            <section className="glass-panel p-6 rounded-xl">
+                                <h3 className="text-xs font-bold uppercase tracking-widest text-[var(--text-secondary)] mb-6 flex items-center gap-2">
+                                    <Cpu size={14} /> Intelligence & AI
+                                </h3>
+                                <div className="space-y-4">
+                                    <div className="flex justify-between items-center py-2 border-b border-border/50">
+                                        <span className="text-sm text-[var(--text-primary)]">Generative Engine</span>
+                                        <span className="text-xs font-mono text-primary flex items-center gap-2">
+                                            <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                                            Gemini 3 Flash (Preview)
+                                        </span>
+                                    </div>
+                                    <div className="flex justify-between items-center py-2 border-b border-border/50">
+                                        <span className="text-sm text-[var(--text-primary)]">Knowledge Base</span>
+                                        <span className="text-xs font-mono text-[var(--text-secondary)] flex items-center gap-1">
+                                            <Signal size={10} /> Live Web Index
+                                        </span>
+                                    </div>
+                                    <div className="flex justify-between items-center py-2 border-b border-border/50">
+                                        <span className="text-sm text-[var(--text-primary)]">Scout Parsing</span>
+                                        <span className="text-xs font-mono text-emerald-500 font-bold">Active</span>
+                                    </div>
+                                </div>
+                            </section>
+
                             {/* Visual Settings */}
                             <section className="glass-panel p-6 rounded-xl">
                                 <h3 className="text-xs font-bold uppercase tracking-widest text-[var(--text-secondary)] mb-6 flex items-center gap-2">
@@ -401,7 +415,7 @@ const Settings: React.FC = () => {
                             
                             <div className="flex justify-center pt-8 opacity-50">
                                 <p className="text-[10px] uppercase tracking-widest font-mono">
-                                    PitchControl OS v2.0.4 // Build 8942
+                                    PitchControl OS v2.0.5 // Build 8942
                                 </p>
                             </div>
                         </div>

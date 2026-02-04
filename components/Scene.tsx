@@ -9,11 +9,43 @@ declare global {
     interface IntrinsicElements {
       group: any;
       mesh: any;
-      torusKnotGeometry: any;
-      meshPhysicalMaterial: any;
-      meshBasicMaterial: any;
-      ambientLight: any;
+      line: any;
+      lineLoop: any;
+      lineSegments: any;
+      pointLight: any;
+      directionalLight: any;
       spotLight: any;
+      ambientLight: any;
+      fog: any;
+      color: any;
+      // Geometries
+      planeGeometry: any;
+      bufferGeometry: any;
+      boxGeometry: any;
+      sphereGeometry: any;
+      cylinderGeometry: any;
+      coneGeometry: any;
+      circleGeometry: any;
+      ringGeometry: any;
+      torusKnotGeometry: any;
+      icosahedronGeometry: any;
+      // Materials
+      meshStandardMaterial: any;
+      meshBasicMaterial: any;
+      meshPhysicalMaterial: any;
+      lineBasicMaterial: any;
+      // Attributes
+      float32BufferAttribute: any;
+      // Catch-all
+      [elemName: string]: any;
+    }
+  }
+  // Support for React 18+ JSX namespace
+  namespace React {
+    namespace JSX {
+      interface IntrinsicElements {
+        [elemName: string]: any;
+      }
     }
   }
 }

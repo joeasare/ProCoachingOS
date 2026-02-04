@@ -1,3 +1,4 @@
+
 import React, { ReactNode } from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Layout from './components/Layout';
@@ -11,6 +12,7 @@ import PracticePlanner from './components/PracticePlanner';
 import MatchDetail from './components/MatchDetail';
 import Settings from './components/Settings';
 import TeamChannel from './components/TeamChannel';
+import TransferPortal from './components/TransferPortal';
 import CustomCursor from './components/CustomCursor';
 import { ThemeProvider } from './context/ThemeContext';
 import { AuthProvider } from './context/AuthContext';
@@ -26,10 +28,7 @@ interface ErrorBoundaryState {
 
 // Simple Error Boundary
 class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  constructor(props: ErrorBoundaryProps) {
-    super(props);
-    this.state = { hasError: false };
-  }
+  public state: ErrorBoundaryState = { hasError: false };
 
   static getDerivedStateFromError(error: any): ErrorBoundaryState {
     return { hasError: true };
@@ -50,7 +49,8 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
         </div>
       );
     }
-    return this.props.children;
+    // Explicitly cast this to avoid 'Property props does not exist' error in some environments
+    return (this as any).props.children;
   }
 }
 
@@ -75,6 +75,7 @@ function App() {
                     <Route path="/drills" element={<DrillLibrary />} /> 
                     <Route path="/planning" element={<PracticePlanner />} />
                     <Route path="/team" element={<TeamChannel />} />
+                    <Route path="/transfers" element={<TransferPortal />} />
                     <Route path="/settings" element={<Settings />} />
                     
                     {/* Tactics Route */}

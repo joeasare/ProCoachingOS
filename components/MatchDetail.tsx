@@ -1,13 +1,70 @@
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Play, Pause, ChevronLeft, Clock, MapPin, Shield, Zap, Flag, Activity, Users, ArrowRightLeft, AlertOctagon, MessageSquare, Trophy, Rewind, FastForward, Image as ImageIcon, Video, Upload, Plus, X } from 'lucide-react';
+import { Play, Pause, ChevronLeft, Clock, MapPin, Shield, Zap, Flag, Activity, Users, ArrowRightLeft, AlertOctagon, MessageSquare, Trophy, Image as ImageIcon, Video, Upload, Plus, X, Loader2, FileText, ChevronRight } from 'lucide-react';
 import TacticalField from './TacticalField';
 import { FullMatchData } from '../types';
-import { mockSessions } from './Schedule';
+import { Session, mockSessions } from './Schedule';
+import { doc, onSnapshot, updateDoc, arrayUnion } from 'firebase/firestore';
+import { db, storage } from '../firebase';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { useToast } from '../context/ToastContext';
 
-// --- MOCK DATA FOR SIMULATION (Maryland vs Rutgers) ---
-// This serves as the base event data template.
+// --- DATA TEMPLATES ---
+
+// Specific Data for Match ID '1' (Maryland vs Lehigh)
+const LEHIGH_DATA: FullMatchData = {
+  id: '1',
+  opponent: 'Lehigh',
+  date: '2025-08-14',
+  venue: 'Ludwig Field',
+  lineups: {
+    home: {
+      formation: '4-3-3 Attack',
+      players: [
+        { num: 7, name: 'Luckey', pos: 'GK' },
+        { num: 6, name: 'Abramson', pos: 'DEF' }, { num: 13, name: 'DeMartino', pos: 'DEF' }, { num: 23, name: 'Turnage', pos: 'DEF' }, { num: 28, name: 'Bulava', pos: 'DEF' },
+        { num: 22, name: 'McIntyre', pos: 'MID' }, { num: 20, name: 'Davitian', pos: 'MID' }, { num: 8, name: 'Lenhard', pos: 'MID' },
+        { num: 14, name: 'Smith', pos: 'FWD' }, { num: 2, name: 'Morales', pos: 'FWD' }, { num: 47, name: 'Egeland', pos: 'FWD' }
+      ]
+    },
+    away: {
+      formation: '4-4-2 Flat',
+      players: [
+        { num: 32, name: 'Ousouljoglou', pos: 'GK' },
+        { num: 5, name: 'Hill', pos: 'MID' }, { num: 8, name: 'Pluck', pos: 'MID' }, { num: 9, name: 'McCallum', pos: 'DEF' }, { num: 25, name: 'Cunningham', pos: 'DEF' },
+        { num: 14, name: 'Forney', pos: 'FWD' }, { num: 17, name: 'Lis', pos: 'FWD' }, { num: 18, name: 'Baruwa', pos: 'FWD' }, { num: 28, name: 'Place', pos: 'MID' },
+        { num: 85, name: 'Dobosiewicz', pos: 'DEF' }, { num: 11, name: 'Gage', pos: 'DEF' }
+      ]
+    }
+  },
+  finalStats: {
+    possession: [58, 42],
+    shots: [16, 5],
+    shotsOnTarget: [10, 3],
+    corners: [7, 4],
+    fouls: [5, 6],
+    yellowCards: [0, 0],
+    redCards: [0, 0]
+  },
+  events: [
+    { id: 'l0', minute: 0, type: 'whistle', team: 'neutral', description: 'Kick-off at Ludwig Field. Attendance: 363.', score: [0, 0] },
+    { id: 'l1', minute: 9, type: 'shot', team: 'home', player: 'Smith', description: 'Shot by Smith, top center, saved by Ousouljoglou.', score: [0, 0] },
+    { id: 'l2', minute: 14, type: 'shot', team: 'home', player: 'McIntyre', description: 'Shot blocked by defense.', score: [0, 0] },
+    { id: 'l3', minute: 20, type: 'goal', team: 'home', player: 'Smith', description: 'GOAL! Smith fires it home. Unassisted.', score: [1, 0], isKeyMoment: true },
+    { id: 'l4', minute: 22, type: 'goal', team: 'home', player: 'Morales', description: 'GOAL! Morales doubles the lead. Assists: Abramson, Bulava.', score: [2, 0], isKeyMoment: true },
+    { id: 'l5', minute: 27, type: 'shot', team: 'home', player: 'Smith', description: 'Shot just wide right.', score: [2, 0] },
+    { id: 'l6', minute: 41, type: 'goal', team: 'home', player: 'Morales', description: 'GOAL! Morales gets her second of the night.', score: [3, 0], isKeyMoment: true },
+    { id: 'l7', minute: 45, type: 'whistle', team: 'neutral', description: 'Halftime. Maryland 3 - 0 Lehigh.', score: [3, 0] },
+    { id: 'l8', minute: 56, type: 'shot', team: 'away', player: 'Mitchell', description: 'Shot saved by Luckey.', score: [3, 0] },
+    { id: 'l9', minute: 75, type: 'sub', team: 'home', description: 'Multiple substitutions for Maryland.', score: [3, 0] },
+    { id: 'l10', minute: 82, type: 'save', team: 'home', player: 'Luckey', description: 'Nice save by Luckey on a shot by Pluck.', score: [3, 0] },
+    { id: 'l11', minute: 90, type: 'whistle', team: 'neutral', description: 'Full Time. Maryland wins 3-0.', score: [3, 0] }
+  ]
+};
+
+// Generic Template for other matches
 const BASE_MATCH_DATA: FullMatchData = {
   id: 'template', 
   opponent: 'Rutgers',
@@ -69,12 +126,6 @@ interface MediaItem {
     caption?: string;
 }
 
-const INITIAL_GALLERY: MediaItem[] = [
-    { id: '1', type: 'image', url: 'https://images.unsplash.com/photo-1574629810360-7efbbe195018?q=80&w=2693&auto=format&fit=crop', caption: 'Pre-match huddle' },
-    { id: '2', type: 'image', url: 'https://images.unsplash.com/photo-1522778119026-d647f0565c71?q=80&w=2670&auto=format&fit=crop', caption: 'Goal celebration' },
-    { id: '3', type: 'video', url: 'https://assets.mixkit.co/videos/preview/mixkit-soccer-player-training-on-a-field-4299-large.mp4', caption: 'Key highlight' }, 
-];
-
 // --- Helper Components ---
 
 const StatBar = ({ label, home, away, max = 100 }: { label: string, home: number, away: number, max?: number }) => (
@@ -102,19 +153,49 @@ const StatBar = ({ label, home, away, max = 100 }: { label: string, home: number
 const MatchDetail: React.FC = () => {
     const navigate = useNavigate();
     const { id } = useParams();
+    const { addToast } = useToast();
+    const [session, setSession] = useState<Session | null>(null);
     const [currentTime, setCurrentTime] = useState(0);
     const [isPlaying, setIsPlaying] = useState(false);
     const [activeTab, setActiveTab] = useState<'feed' | 'stats' | 'lineups' | 'gallery'>('feed');
-    const [galleryItems, setGalleryItems] = useState<MediaItem[]>(INITIAL_GALLERY);
+    const [isUploading, setIsUploading] = useState(false);
     
-    // Find session data
-    const session = useMemo(() => mockSessions.find(s => s.id === id), [id]);
+    // Stats Import State
+    const statsFileInputRef = useRef<HTMLInputElement>(null);
+    const [importedStats, setImportedStats] = useState<{name: string, goals: number, assists: number}[] | null>(null);
+    
+    // Fetch Session from Firestore OR Fallback to Mock
+    useEffect(() => {
+        if (!id) return;
+        
+        // Listen to Firestore
+        const unsub = onSnapshot(doc(db, 'sessions', id), (docSnapshot) => {
+            if (docSnapshot.exists()) {
+                setSession({ id: docSnapshot.id, ...docSnapshot.data() } as Session);
+            } else {
+                // Fallback to Mock Data if not in Firestore (e.g. initial load)
+                const mock = mockSessions.find(s => s.id === id);
+                if (mock) {
+                    setSession(mock);
+                }
+            }
+        });
+        return () => unsub();
+    }, [id]);
+
+    // Select Data Source based on ID
+    const activeData = useMemo(() => {
+        if (id === '1') return LEHIGH_DATA;
+        return BASE_MATCH_DATA;
+    }, [id]);
+
+    const galleryItems: MediaItem[] = session?.gallery || [];
 
     // Derived Match Data
     const homeTeam = "MARYLAND";
-    const awayTeam = session ? session.title.replace(/^(vs |at )/i, '').toUpperCase() : "OPPONENT";
-    const venue = session?.location === 'Home' ? "Ludwig Field" : (session?.location || "Away");
-    const date = session ? new Date(session.date).toLocaleDateString() : "Match Date";
+    const awayTeam = session ? session.title.replace(/^(vs |at )/i, '').toUpperCase() : activeData.opponent.toUpperCase();
+    const venue = session?.location === 'Home' ? "Ludwig Field" : (session?.location || activeData.venue);
+    const date = session ? new Date(session.date).toLocaleDateString() : activeData.date;
     
     // Parse result for display
     const [homeScore, awayScore] = useMemo(() => {
@@ -126,11 +207,11 @@ const MatchDetail: React.FC = () => {
 
     // Filter events up to current time & inject team names
     const currentEvents = useMemo(() => {
-        return BASE_MATCH_DATA.events.filter(e => e.minute <= currentTime).reverse().map(e => ({
+        return activeData.events.filter(e => e.minute <= currentTime).reverse().map(e => ({
             ...e,
             description: e.description.replace('Rutgers', awayTeam.charAt(0) + awayTeam.slice(1).toLowerCase())
         }));
-    }, [currentTime, awayTeam]);
+    }, [currentTime, awayTeam, activeData]);
 
     // Timer Logic
     useEffect(() => {
@@ -145,23 +226,97 @@ const MatchDetail: React.FC = () => {
         return () => clearInterval(interval);
     }, [isPlaying, currentTime]);
 
-    const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files && e.target.files[0]) {
+    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0] && session) {
             const file = e.target.files[0];
             const type = file.type.startsWith('video/') ? 'video' : 'image';
-            const newItem: MediaItem = {
-                id: Math.random().toString(),
-                type,
-                url: URL.createObjectURL(file),
-                caption: file.name
-            };
-            setGalleryItems([newItem, ...galleryItems]);
+            setIsUploading(true);
+            try {
+                const storageRef = ref(storage, `matches/${session.id}/media/${Date.now()}_${file.name}`);
+                await uploadBytes(storageRef, file);
+                const url = await getDownloadURL(storageRef);
+
+                const newItem: MediaItem = {
+                    id: Math.random().toString(),
+                    type,
+                    url: url,
+                    caption: file.name
+                };
+                
+                // Only try to update if we have a real doc reference (might fail if using mock data without creating doc first)
+                try {
+                    await updateDoc(doc(db, 'sessions', session.id), {
+                        gallery: arrayUnion(newItem)
+                    });
+                } catch (err) {
+                    addToast("Could not save to database (Demo Mode)", 'error');
+                }
+
+            } catch (error) {
+                console.error("Upload failed", error);
+            } finally {
+                setIsUploading(false);
+            }
         }
     };
 
-    const removeMedia = (id: string) => {
-        setGalleryItems(prev => prev.filter(item => item.id !== id));
+    const handleStatsUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const text = event.target?.result as string;
+            try {
+                // Expecting: Player,Goals,Assists
+                const rows = text.trim().split('\n');
+                const data = [];
+                const startIdx = rows[0].toLowerCase().includes('player') ? 1 : 0;
+
+                for(let i = startIdx; i < rows.length; i++) {
+                    const cols = rows[i].split(',');
+                    if(cols.length >= 3) {
+                        data.push({
+                            name: cols[0].trim(),
+                            goals: parseInt(cols[1].trim()) || 0,
+                            assists: parseInt(cols[2].trim()) || 0
+                        });
+                    }
+                }
+
+                if(data.length > 0) {
+                    setImportedStats(data);
+                    addToast(`Parsed stats for ${data.length} players`, 'success');
+                } else {
+                    addToast('No valid data found in CSV', 'error');
+                }
+            } catch (err) {
+                console.error(err);
+                addToast('Failed to parse stats CSV', 'error');
+            }
+        };
+        reader.readAsText(file);
+        e.target.value = ''; // Reset
     };
+
+    const removeMedia = async (mediaId: string) => {
+        if (!session) return;
+        const updatedGallery = galleryItems.filter(item => item.id !== mediaId);
+        try {
+            await updateDoc(doc(db, 'sessions', session.id), {
+                gallery: updatedGallery
+            });
+        } catch (err) {
+            console.warn("Cannot update mock data");
+        }
+    };
+
+    if (!session) return (
+        <div className="h-screen flex flex-col items-center justify-center text-[var(--text-secondary)] gap-4">
+            <Loader2 className="animate-spin text-primary" size={32} />
+            <span className="text-sm font-mono uppercase tracking-widest">Initializing Data Stream...</span>
+        </div>
+    );
 
     return (
         <div className="min-h-screen bg-[var(--background)] p-4 md:p-8 pb-20">
@@ -191,7 +346,7 @@ const MatchDetail: React.FC = () => {
                              <span className="text-lg font-mono font-bold tabular-nums">{currentTime}'</span>
                          </div>
                          <div className="text-[10px] font-mono text-[var(--text-secondary)] mt-2 uppercase tracking-widest">
-                             {session?.result?.split(' ')[0] === 'W' ? 'Full Time - Win' : session?.result?.split(' ')[0] === 'L' ? 'Full Time - Loss' : 'Full Time - Draw'}
+                             {session?.result?.split(' ')[0] === 'W' ? 'Full Time - Win' : session?.result?.split(' ')[0] === 'L' ? 'Full Time - Loss' : session?.result === 'T 0-0' ? 'Full Time - Draw' : 'Match Preview'}
                          </div>
                     </div>
 
@@ -228,7 +383,7 @@ const MatchDetail: React.FC = () => {
                         </div>
                         
                         {/* Event Markers on Timeline */}
-                        {BASE_MATCH_DATA.events.filter(e => e.isKeyMoment || e.type === 'goal').map(e => (
+                        {activeData.events.filter(e => e.isKeyMoment || e.type === 'goal').map(e => (
                             <div 
                                 key={e.id}
                                 className="absolute top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-white z-0"
@@ -378,14 +533,64 @@ const MatchDetail: React.FC = () => {
                                 initial={{ opacity: 0, scale: 0.95 }} 
                                 animate={{ opacity: 1, scale: 1 }}
                                 exit={{ opacity: 0, scale: 0.95 }}
-                                className="glass-panel p-8 rounded-xl"
+                                className="space-y-6"
                             >
-                                <h3 className="text-lg font-bold mb-6 text-center">Live Statistics</h3>
-                                <StatBar label="Possession %" home={BASE_MATCH_DATA.finalStats.possession[0]} away={BASE_MATCH_DATA.finalStats.possession[1]} />
-                                <StatBar label="Total Shots" home={BASE_MATCH_DATA.finalStats.shots[0]} away={BASE_MATCH_DATA.finalStats.shots[1]} />
-                                <StatBar label="Shots on Target" home={BASE_MATCH_DATA.finalStats.shotsOnTarget[0]} away={BASE_MATCH_DATA.finalStats.shotsOnTarget[1]} />
-                                <StatBar label="Corners" home={BASE_MATCH_DATA.finalStats.corners[0]} away={BASE_MATCH_DATA.finalStats.corners[1]} />
-                                <StatBar label="Fouls Committed" home={BASE_MATCH_DATA.finalStats.fouls[0]} away={BASE_MATCH_DATA.finalStats.fouls[1]} />
+                                <div className="glass-panel p-8 rounded-xl">
+                                    <h3 className="text-lg font-bold mb-6 text-center">Live Statistics</h3>
+                                    <StatBar label="Possession %" home={activeData.finalStats.possession[0]} away={activeData.finalStats.possession[1]} />
+                                    <StatBar label="Total Shots" home={activeData.finalStats.shots[0]} away={activeData.finalStats.shots[1]} />
+                                    <StatBar label="Shots on Target" home={activeData.finalStats.shotsOnTarget[0]} away={activeData.finalStats.shotsOnTarget[1]} />
+                                    <StatBar label="Corners" home={activeData.finalStats.corners[0]} away={activeData.finalStats.corners[1]} />
+                                    <StatBar label="Fouls Committed" home={activeData.finalStats.fouls[0]} away={activeData.finalStats.fouls[1]} />
+                                </div>
+
+                                <div className="glass-panel p-6 rounded-xl">
+                                    <div className="flex justify-between items-center mb-6">
+                                        <h3 className="text-sm font-bold uppercase tracking-widest text-[var(--text-primary)]">Player Performance</h3>
+                                        <button 
+                                            onClick={() => statsFileInputRef.current?.click()}
+                                            className="px-3 py-1.5 bg-primary/10 text-primary border border-primary/20 rounded-lg text-xs font-bold uppercase hover:bg-primary/20 transition-colors flex items-center gap-2"
+                                        >
+                                            <Upload size={12} /> Import Stats
+                                        </button>
+                                        <input type="file" ref={statsFileInputRef} onChange={handleStatsUpload} accept=".csv" className="hidden" />
+                                    </div>
+
+                                    {importedStats ? (
+                                        <div className="overflow-x-auto">
+                                            <table className="w-full text-left">
+                                                <thead>
+                                                    <tr className="text-[10px] text-[var(--text-secondary)] uppercase tracking-widest border-b border-border/50">
+                                                        <th className="pb-3 pl-2">Player</th>
+                                                        <th className="pb-3 text-right">Goals</th>
+                                                        <th className="pb-3 text-right pr-2">Assists</th>
+                                                        <th className="pb-3 text-right pr-2">Rating</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-border/30">
+                                                    {importedStats.map((p, i) => (
+                                                        <tr key={i} className="group hover:bg-white/5 transition-colors">
+                                                            <td className="py-2.5 pl-2 font-medium text-sm text-[var(--text-primary)]">{p.name}</td>
+                                                            <td className="py-2.5 text-right font-mono text-[var(--text-primary)]">{p.goals}</td>
+                                                            <td className="py-2.5 text-right font-mono text-[var(--text-primary)] pr-2">{p.assists}</td>
+                                                            <td className="py-2.5 text-right font-mono pr-2">
+                                                                <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${p.goals > 0 ? 'bg-emerald-500/20 text-emerald-500' : 'bg-neutral-500/20 text-neutral-500'}`}>
+                                                                    {(6.5 + (p.goals * 1.5) + (p.assists * 0.5)).toFixed(1)}
+                                                                </span>
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    ) : (
+                                        <div className="flex flex-col items-center justify-center py-8 text-[var(--text-secondary)] border-2 border-dashed border-border rounded-lg">
+                                            <FileText size={24} className="mb-2 opacity-50" />
+                                            <span className="text-xs">No individual stats loaded.</span>
+                                            <span className="text-[10px] opacity-50">Upload CSV (Player, Goals, Assists)</span>
+                                        </div>
+                                    )}
+                                </div>
                             </motion.div>
                         )}
 
@@ -397,7 +602,7 @@ const MatchDetail: React.FC = () => {
                                 className="h-[500px] glass-panel rounded-xl overflow-hidden relative border border-white/5"
                             >
                                 <div className="absolute top-4 left-4 z-10 bg-black/60 backdrop-blur px-3 py-1 rounded text-xs text-white">
-                                    Formation: {BASE_MATCH_DATA.lineups.home.formation} vs {BASE_MATCH_DATA.lineups.away.formation}
+                                    Formation: {activeData.lineups.home.formation} vs {activeData.lineups.away.formation}
                                 </div>
                                 <TacticalField preview={true} />
                             </motion.div>
@@ -412,10 +617,10 @@ const MatchDetail: React.FC = () => {
                             >
                                 <div className="flex justify-between items-center mb-6">
                                      <h3 className="text-lg font-bold">Match Media</h3>
-                                     <label className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg cursor-pointer hover:opacity-90 transition-opacity">
-                                        <Upload size={16} />
-                                        <span className="text-xs font-bold uppercase">Upload</span>
-                                        <input type="file" className="hidden" accept="image/*,video/*" onChange={handleFileUpload} />
+                                     <label className={`flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg cursor-pointer hover:opacity-90 transition-opacity ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                                        {isUploading ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
+                                        <span className="text-xs font-bold uppercase">{isUploading ? 'Uploading...' : 'Upload'}</span>
+                                        <input type="file" className="hidden" accept="image/*,video/*" onChange={handleFileUpload} disabled={isUploading} />
                                      </label>
                                 </div>
 
@@ -453,12 +658,12 @@ const MatchDetail: React.FC = () => {
                                     ))}
                                     
                                     {/* Empty State / Dropzone visual */}
-                                     <label className="aspect-[4/5] rounded-lg border-2 border-dashed border-border flex flex-col items-center justify-center gap-2 text-[var(--text-secondary)] hover:text-primary hover:border-primary/50 transition-colors cursor-pointer bg-[var(--glass)] group">
+                                     <label className={`aspect-[4/5] rounded-lg border-2 border-dashed border-border flex flex-col items-center justify-center gap-2 text-[var(--text-secondary)] hover:text-primary hover:border-primary/50 transition-colors cursor-pointer bg-[var(--glass)] group ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}`}>
                                         <div className="w-12 h-12 rounded-full bg-[var(--surface)] flex items-center justify-center group-hover:scale-110 transition-transform">
-                                            <Plus size={24} />
+                                            {isUploading ? <Loader2 size={24} className="animate-spin" /> : <Plus size={24} />}
                                         </div>
-                                        <span className="text-xs font-bold uppercase tracking-wider">Add Media</span>
-                                        <input type="file" className="hidden" accept="image/*,video/*" onChange={handleFileUpload} />
+                                        <span className="text-xs font-bold uppercase tracking-wider">{isUploading ? 'Uploading...' : 'Add Media'}</span>
+                                        <input type="file" className="hidden" accept="image/*,video/*" onChange={handleFileUpload} disabled={isUploading} />
                                      </label>
                                 </div>
                             </motion.div>

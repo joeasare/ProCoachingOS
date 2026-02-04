@@ -1,3 +1,4 @@
+
 import React, { useRef, useState } from 'react';
 import { motion, useScroll, useTransform, AnimatePresence } from 'framer-motion';
 import { ArrowDownRight, Circle, MoveRight, X, ChevronRight, Menu, ChevronLeft } from 'lucide-react';
@@ -59,39 +60,44 @@ type FeatureCardProps = {
 const FeatureCard: React.FC<FeatureCardProps> = ({ item, index, isActive, onClick, theme }) => {
     return (
         <motion.div 
-            initial={{ opacity: 0, y: 100 }}
+            initial={{ opacity: 0, y: 50 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: "-10%" }}
             transition={{ duration: 0.8, delay: index * 0.1, ease: [0.16, 1, 0.3, 1] }}
-            className={`group relative flex flex-col gap-4 cursor-pointer transition-opacity duration-500 ${isActive ? 'opacity-100' : 'opacity-60 hover:opacity-100'}`}
+            className="group cursor-pointer py-12 border-b border-[var(--border)] relative"
             onClick={onClick}
         >
-            <div className="relative aspect-[3/4] overflow-hidden bg-neutral-900">
-                <img 
-                    src={item.img} 
-                    alt={item.title} 
-                    className={`w-full h-full object-cover contrast-125 transition-all duration-[1.5s] ease-out ${isActive ? 'scale-110 grayscale-0' : 'grayscale group-hover:scale-110 group-hover:grayscale-0'}`}
-                />
-                <div className={`absolute inset-0 bg-gradient-to-t from-black/80 to-transparent transition-opacity duration-500 flex items-end p-6 ${isActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
-                    <span className="text-white text-xs font-mono uppercase tracking-widest border border-white/30 px-2 py-1 rounded-full bg-black/50 backdrop-blur-md">
-                        {isActive ? 'Active Protocol' : 'Initialize Protocol'}
-                    </span>
-                </div>
+            <div className="flex justify-between items-baseline">
+                <h3 className={`text-6xl md:text-8xl font-black uppercase tracking-tighter transition-all duration-700 ${isActive ? 'text-[var(--text-primary)]' : 'text-transparent outline-text opacity-40 hover:opacity-100 hover:text-[var(--text-primary)]'}`} style={isActive ? {} : { WebkitTextStroke: `1px ${theme === 'dark' ? 'white' : 'black'}` }}>
+                    {item.title}
+                </h3>
+                <span className="text-xs font-mono opacity-50 hidden md:block">{item.subtitle}</span>
             </div>
-            <div>
-                <div className="flex justify-between items-start border-t border-[var(--border)] pt-4">
-                    <h3 
-                        className={`text-4xl md:text-5xl font-black uppercase leading-[0.85] tracking-tighter transition-all duration-500 ${isActive ? 'text-[var(--text-primary)]' : 'text-[var(--text-primary)] group-hover:text-transparent group-hover:outline-text'}`} 
-                        style={isActive ? {} : { WebkitTextStroke: `1px ${theme === 'dark' ? 'white' : 'black'}` }}
+            
+            <AnimatePresence>
+                {isActive && (
+                    <motion.div 
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.5, ease: "circOut" }}
+                        className="overflow-hidden mt-8"
                     >
-                        {item.title}
-                    </h3>
-                    <ArrowDownRight className={`text-[var(--text-secondary)] transition-all duration-500 ${isActive ? 'text-[var(--text-primary)] rotate-[-45deg]' : 'group-hover:text-[var(--text-primary)] group-hover:rotate-[-45deg]'}`} />
-                </div>
-                <p className="text-[10px] md:text-xs font-mono uppercase tracking-[0.2em] text-[var(--text-secondary)] mt-2">
-                    {item.subtitle}
-                </p>
-            </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            <div className="aspect-video bg-neutral-900 overflow-hidden">
+                                <img src={item.img} className="w-full h-full object-cover" />
+                            </div>
+                            <div className="flex flex-col justify-between">
+                                <p className="text-sm md:text-base leading-relaxed font-light">{item.description}</p>
+                                <div className="flex items-center gap-4 mt-8">
+                                    <div className="h-px bg-[var(--text-primary)] flex-1" />
+                                    <span className="text-[10px] uppercase tracking-widest font-bold">Explore</span>
+                                </div>
+                            </div>
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </motion.div>
     )
 }
@@ -116,17 +122,7 @@ const HomePage: React.FC = () => {
         setActiveFeatureIndex(null);
         return;
     }
-
     setActiveFeatureIndex(index);
-    
-    // Ensure the user sees the detail view comfortably
-    setTimeout(() => {
-        if (detailViewRef.current) {
-            const yOffset = -120; // Ensure header doesn't cover content
-            const y = detailViewRef.current.getBoundingClientRect().top + window.scrollY + yOffset;
-            window.scrollTo({ top: y, behavior: 'smooth' });
-        }
-    }, 100);
   };
 
   const scrollToSection = (id: string) => {
@@ -150,8 +146,7 @@ const HomePage: React.FC = () => {
           <div className="flex gap-12 pointer-events-auto">
               {[
                   { label: 'VISION', id: 'vision' }, 
-                  { label: 'FLOW', id: 'flow' }, 
-                  { label: 'DATA', id: 'data' }
+                  { label: 'ARCHIVE', id: 'archive' }
               ].map((item) => (
                   <button 
                       key={item.label} 
@@ -258,144 +253,27 @@ const HomePage: React.FC = () => {
         />
       </section>
 
-      {/* Manifest Section */}
-      <section id="flow" ref={detailViewRef} className="py-32 px-6 md:px-20 border-t border-[var(--border)] relative z-10 bg-[var(--background)] transition-colors duration-500">
-         <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-20">
-             
-             {/* Left Column: Sticky Content Area */}
-             <div className="relative">
-                 <div className="sticky top-32 min-h-[400px] z-20">
-                     <AnimatePresence mode="wait">
-                         {activeData ? (
-                             <motion.div 
-                                key="active"
-                                initial={{ opacity: 0, x: -20, filter: 'blur(10px)' }}
-                                animate={{ opacity: 1, x: 0, filter: 'blur(0px)' }}
-                                exit={{ opacity: 0, x: 20, filter: 'blur(10px)' }}
-                                transition={{ duration: 0.4, ease: "circOut" }}
-                                className="space-y-6"
-                             >
-                                <div className="flex items-center gap-3 text-[10px] font-mono text-[var(--text-secondary)] border-b border-[var(--border)] pb-4 mb-2">
-                                     <button 
-                                        onClick={() => setActiveFeatureIndex(null)}
-                                        className="hover:text-[var(--text-primary)] flex items-center gap-1 transition-colors uppercase tracking-widest"
-                                     >
-                                         <ChevronLeft size={10} />
-                                         Index
-                                     </button>
-                                     <span>/</span>
-                                     <span className="uppercase tracking-widest text-primary">{activeData.key}</span>
-                                     <span className="ml-auto opacity-50">SYS.MOD.0{activeData.id + 1}</span>
-                                </div>
-                                
-                                <div>
-                                    <motion.h2 
-                                        className="text-6xl md:text-7xl font-black uppercase tracking-tighter leading-[0.85] text-[var(--text-primary)]" 
-                                        initial={{ y: 20, opacity: 0 }}
-                                        animate={{ y: 0, opacity: 1 }}
-                                        transition={{ delay: 0.1 }}
-                                    >
-                                        {activeData.title}
-                                    </motion.h2>
-                                    <motion.p
-                                        className="text-xs font-mono text-primary mt-2 uppercase tracking-widest"
-                                        initial={{ opacity: 0 }}
-                                        animate={{ opacity: 1 }}
-                                        transition={{ delay: 0.2 }}
-                                    >
-                                        {activeData.subtitle}
-                                    </motion.p>
-                                </div>
-                                
-                                <motion.div 
-                                    className="bg-[var(--surface)] border-l-2 border-primary pl-6 py-2 pr-4 relative"
-                                    initial={{ opacity: 0, x: -10 }}
-                                    animate={{ opacity: 1, x: 0 }}
-                                    transition={{ delay: 0.3 }}
-                                >
-                                    <div className="absolute top-0 left-0 w-full h-full bg-primary/5 -z-10 blur-sm rounded-r-lg" />
-                                    <p className="text-sm md:text-base text-[var(--text-primary)] leading-relaxed font-light">
-                                        {activeData.description}
-                                    </p>
-                                </motion.div>
-
-                                <motion.div 
-                                    className="grid grid-cols-2 gap-4 pt-4"
-                                    initial={{ opacity: 0 }}
-                                    animate={{ opacity: 1 }}
-                                    transition={{ delay: 0.4 }}
-                                >
-                                    <div>
-                                        <span className="text-[9px] uppercase tracking-widest text-[var(--text-secondary)] block mb-2">Parameters</span>
-                                        <div className="flex flex-wrap gap-2">
-                                            {activeData.tags.map((tag) => (
-                                                <span key={tag} className="px-2 py-1 bg-[var(--border)] rounded text-[10px] uppercase font-bold text-[var(--text-primary)]">
-                                                    {tag}
-                                                </span>
-                                            ))}
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <span className="text-[9px] uppercase tracking-widest text-[var(--text-secondary)] block mb-2">Status</span>
-                                        <div className="flex items-center gap-2 text-xs font-mono text-emerald-500">
-                                            <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
-                                            OPERATIONAL
-                                        </div>
-                                    </div>
-                                </motion.div>
-
-                                <motion.div 
-                                    className="pt-8"
-                                    initial={{ opacity: 0, y: 20 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    transition={{ delay: 0.5 }}
-                                >
-                                    <button 
-                                        onClick={handleNavigate}
-                                        className="group w-full md:w-auto px-8 py-4 bg-[var(--text-primary)] text-[var(--background)] text-xs font-bold uppercase tracking-[0.2em] hover:bg-primary hover:text-white transition-all flex items-center justify-between gap-8"
-                                    >
-                                        <span>Initiate Protocol</span>
-                                        <ArrowDownRight className="transition-transform group-hover:-rotate-90" size={16} />
-                                    </button>
-                                </motion.div>
-                             </motion.div>
-                         ) : (
-                             <motion.div 
-                                key="default"
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 1 }}
-                                exit={{ opacity: 0 }}
-                                transition={{ duration: 0.5 }}
-                                className="space-y-12"
-                             >
-                                <h2 className="text-5xl md:text-7xl font-bold uppercase tracking-tight leading-none text-[var(--text-primary)]">
-                                    Kinetic<br/>
-                                    <span className="italic font-serif font-light text-[var(--text-secondary)]">Archives</span>
-                                </h2>
-                                <p className="text-sm md:text-base text-[var(--text-secondary)] font-light leading-relaxed max-w-sm">
-                                    We strip away the noise. The pitch is no longer just grass; it is a canvas of geometric probability. 
-                                    Data is not just numbers—it is the ritual of performance.
-                                </p>
-                                
-                                <div className="flex items-center gap-4 text-xs font-bold uppercase tracking-widest pt-8 border-t border-[var(--border)] w-fit text-[var(--text-primary)]">
-                                    <span>Select a module to explore</span>
-                                    <MoveRight size={14} />
-                                </div>
-                             </motion.div>
-                         )}
-                     </AnimatePresence>
-                 </div>
+      {/* Kinetic Archive Section (Minimalist List) */}
+      <section id="archive" className="py-32 px-6 md:px-20 relative bg-[var(--background)] transition-colors duration-500">
+         <div className="max-w-6xl mx-auto">
+             <div className="mb-24 flex items-baseline gap-4">
+                 <h2 className="text-sm font-mono uppercase tracking-[0.2em] opacity-50">Kinetic Archive</h2>
+                 <div className="h-px bg-[var(--border)] flex-1" />
              </div>
 
-             {/* Right Column: Cards */}
-             <div id="data" className="grid grid-cols-1 gap-32 pt-20">
+             <div className="flex flex-col">
                  {METHODOLOGY_DATA.map((item, i) => (
                      <FeatureCard 
                         key={item.id}
                         item={item}
                         index={i}
                         isActive={activeFeatureIndex === i}
-                        onClick={() => handleCardClick(i)}
+                        onClick={() => {
+                            handleCardClick(i);
+                            if (activeFeatureIndex === i) {
+                                navigate(item.route);
+                            }
+                        }}
                         theme={theme}
                      />
                  ))}

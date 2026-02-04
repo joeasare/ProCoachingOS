@@ -1,101 +1,68 @@
-import React, { useState } from 'react';
-import { Search, Clock, Users, BarChart3, Bookmark, X, Star, ClipboardList, TrendingUp, ChevronRight, Activity, Plus, Save, PenLine, Trash2, Link as LinkIcon, FileText, Video, Paperclip, ExternalLink, Image as ImageIcon } from 'lucide-react';
+
+import React, { useState, useEffect } from 'react';
+import { Search, Clock, Users, BarChart3, Bookmark, X, Star, ClipboardList, TrendingUp, ChevronRight, Activity, Plus, Save, PenLine, Trash2, Link as LinkIcon, FileText, Video, Paperclip, ExternalLink, Image as ImageIcon, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Drill, DrillCategory, DrillHistory, DrillResource, DrillDifficulty } from '../types';
+import { collection, addDoc, onSnapshot, query, updateDoc, doc, orderBy } from 'firebase/firestore';
+import { db, storage } from '../firebase';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 const MOCK_DRILLS: Drill[] = [
     { 
-        id: '1', 
-        title: '5v2 Rondo Transition', 
-        category: 'Technical', 
+        id: 'd1', 
+        title: '3v2 Counter Attack', 
+        category: 'Tactical', 
         duration: 15, 
-        minPlayers: 7, 
-        difficulty: 'Medium', 
-        image: 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=80&w=2670&auto=format&fit=crop',
-        description: 'High-intensity possession game focusing on quick transitions. The defending pair must win the ball and successfully play to an outside target to rotate out. Encourages rapid reaction to turnovers.',
-        coachingPoints: ['Angle of support', 'Speed of play', 'Immediate reaction to loss of possession', 'Communication between defenders'],
-        history: [
-            { date: '2025-08-10', sessionTitle: 'Pre-season Camp Day 3', rating: 4, notes: 'Good intensity, defenders struggled initially with coordination.' },
-            { date: '2025-08-25', sessionTitle: 'Match Prep vs Navy', rating: 5, notes: 'Excellent sharpness. Transition speed was elite.' },
-            { date: '2025-09-15', sessionTitle: 'Mid-week Technical', rating: 3, notes: 'Energy levels low. Need to demand more from the outside players.' }
-        ],
-        resources: [
-            { id: 'r1', type: 'video', title: 'Pep Guardiola Rondo Analysis', url: '#' },
-            { id: 'r2', type: 'file', title: 'Session_Plan_PDF.pdf', url: '#', fileSize: '2.4 MB' }
-        ]
-    },
-    { 
-        id: '2', 
-        title: 'High Press Triggers', 
-        category: 'Tactical', 
-        duration: 30, 
-        minPlayers: 14, 
+        minPlayers: 6, 
         difficulty: 'Hard', 
-        image: 'https://images.unsplash.com/photo-1560272564-c83b66b1ad12?q=80&w=2549&auto=format&fit=crop',
-        description: 'Phase of play exercise designed to teach the front three when to initiate the press. Focuses on identifying "triggers" such as a poor touch, a pass to a fullback, or a player receiving with their back to goal.',
-        coachingPoints: ['Curved runs to cut passing lanes', 'Unit compactness', 'Verbal triggers ("GO!")', 'Step up of the midfield line'],
-        history: [
-            { date: '2025-09-02', sessionTitle: 'Tactical Tuesday', rating: 4, notes: 'Solid understanding of the triggers.' },
-            { date: '2025-10-01', sessionTitle: 'Match Prep vs Illinois', rating: 5, notes: 'Best pressing session of the year. Smith led the line well.' }
-        ],
-        resources: [
-             { id: 'r3', type: 'link', title: 'Klopp Pressing Theory', url: 'https://example.com' }
-        ]
+        image: 'https://images.unsplash.com/photo-1551966775-a4ddc8df052b?auto=format&fit=crop&q=80&w=500', 
+        description: 'High tempo counter attacking drill focusing on exploiting numerical superiority in transition.',
+        coachingPoints: ['Commit the defender', 'Quick ball movement', 'Overlap runs to create space']
     },
     { 
-        id: '3', 
-        title: 'Box-to-Box Fitness', 
-        category: 'Physical', 
-        duration: 45, 
-        minPlayers: 2, 
-        difficulty: 'Elite', 
-        image: 'https://images.unsplash.com/photo-1461896836934-ffe607ba8211?q=80&w=2670&auto=format&fit=crop',
-        description: 'Endurance conditioning interval training. Players perform varied intensity runs between the 18-yard boxes, incorporating ball work during active rest periods.',
-        coachingPoints: ['Mental resilience', 'Maintaining technique under fatigue', 'Recovery breathing', 'Consistent pace'],
-        history: [
-            { date: '2025-07-20', sessionTitle: 'Summer Conditioning', rating: 3, notes: 'Several players struggled to complete the final set.' }
-        ]
-    },
-    { 
-        id: '4', 
-        title: 'Overlap Patterns', 
-        category: 'Tactical', 
-        duration: 20, 
+        id: 'd2', 
+        title: 'Technical Passing Diamond', 
+        category: 'Technical', 
+        duration: 10, 
         minPlayers: 8, 
         difficulty: 'Medium', 
-        image: 'https://images.unsplash.com/photo-1517137884378-6229b2836b72?q=80&w=2670&auto=format&fit=crop',
-        description: 'Functional pattern play to exploit wide areas. Focuses on timing of the run by the fullback and the weight of the pass from the winger or midfielder.',
-        coachingPoints: ['Timing of the overlap', 'Disguise on the pass', 'Quality of the service/cross', 'Movement in the box'],
-        history: []
+        image: 'https://images.unsplash.com/photo-1517927033932-b3d18e61fb3a?auto=format&fit=crop&q=80&w=500',
+        description: 'Passing pattern designed to improve one-touch passing, body orientation, and movement off the ball.',
+        coachingPoints: ['Weight of pass', 'Open body shape', 'Check your shoulder']
     },
     { 
-        id: '5', 
-        title: '1v1 Defending Channel', 
-        category: 'Technical', 
-        duration: 15, 
-        minPlayers: 4, 
-        difficulty: 'Hard', 
-        image: 'https://images.unsplash.com/photo-1543326727-25c2dd534888?q=80&w=2670&auto=format&fit=crop',
-        description: 'Isolated defending practice in wide channels. Defender must prevent the attacker from crossing or cutting inside, focusing on body shape and patience.',
-        coachingPoints: ['Approach speed', 'Body shape (side on)', 'Don\'t dive in', 'Force away from danger'],
-        history: [
-            { date: '2025-09-10', sessionTitle: 'Defensive Principles', rating: 4, notes: 'Good patience from the back line.' }
-        ]
+        id: 'd3', 
+        title: 'High Press Triggers', 
+        category: 'Tactical', 
+        duration: 20, 
+        minPlayers: 14, 
+        difficulty: 'Elite', 
+        image: 'https://images.unsplash.com/photo-1431324155629-1a6deb1dec8d?auto=format&fit=crop&q=80&w=500',
+        description: 'Phase of play focusing on coordinated pressing triggers when the opponent plays into wide areas.',
+        coachingPoints: ['Curved runs to cut passing lanes', 'Compact vertical distance', 'Communication']
     },
     { 
-        id: '6', 
-        title: 'Recovery Yoga', 
+        id: 'd4', 
+        title: 'Box Defending & Clearances', 
         category: 'Physical', 
-        duration: 30, 
-        minPlayers: 1, 
-        difficulty: 'Easy', 
-        image: 'https://images.unsplash.com/photo-1544367563-12123d8d5d91?q=80&w=2671&auto=format&fit=crop',
-        description: 'Guided mobility and flexibility session to aid regeneration after match day.',
-        coachingPoints: ['Breathing', 'Relaxation', 'Range of motion'],
-        history: [
-            { date: '2025-08-15', sessionTitle: 'Post-Match Recovery', rating: 5, notes: 'Essential session. Squad mood high.' }
-        ]
+        duration: 15, 
+        minPlayers: 6, 
+        difficulty: 'Medium', 
+        image: 'https://images.unsplash.com/photo-1574629810360-7efbbe4384d4?auto=format&fit=crop&q=80&w=500',
+        description: 'Defensive aerial duels and clearing lines under pressure from crosses.',
+        coachingPoints: ['Attack the ball', 'Height and distance on headers', 'Second ball awareness']
     },
+    { 
+        id: 'd5', 
+        title: 'Small Sided: 4v4 + Neutrals', 
+        category: 'Psychosocial', 
+        duration: 12, 
+        minPlayers: 10, 
+        difficulty: 'Easy', 
+        image: 'https://images.unsplash.com/photo-1526232761682-d26e03ac148e?auto=format&fit=crop&q=80&w=500',
+        description: 'Possession game emphasizing communication, leadership, and quick decision making.',
+        coachingPoints: ['Demanding the ball', 'Positive reinforcement', 'Scanning field']
+    }
 ];
 
 const DrillCard: React.FC<{ drill: Drill, onClick: () => void }> = ({ drill, onClick }) => (
@@ -157,6 +124,7 @@ const DrillDetailPanel: React.FC<DrillDetailPanelProps> = ({ drill, onClose, onU
     // Edit Mode State
     const [isEditing, setIsEditing] = useState(false);
     const [editForm, setEditForm] = useState(drill);
+    const [isUploading, setIsUploading] = useState(false);
     
     // Resource Management State (Edit Mode)
     const [newResTitle, setNewResTitle] = useState('');
@@ -204,11 +172,23 @@ const DrillDetailPanel: React.FC<DrillDetailPanelProps> = ({ drill, onClose, onU
         }));
     };
 
-    const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
-            setNewResTitle(e.target.files[0].name);
-            setNewResType('file');
-            setNewResUrl('#'); // Mock URL
+            const file = e.target.files[0];
+            setIsUploading(true);
+            try {
+                const storageRef = ref(storage, `drills/resources/${Date.now()}_${file.name}`);
+                await uploadBytes(storageRef, file);
+                const url = await getDownloadURL(storageRef);
+                
+                setNewResTitle(file.name);
+                setNewResType('file');
+                setNewResUrl(url);
+            } catch (error) {
+                console.error("Upload failed", error);
+            } finally {
+                setIsUploading(false);
+            }
         }
     };
 
@@ -358,16 +338,17 @@ const DrillDetailPanel: React.FC<DrillDetailPanelProps> = ({ drill, onClose, onU
                                         type="file" 
                                         className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                                         onChange={handleFileUpload}
+                                        disabled={isUploading}
                                      />
-                                     <div className="w-full bg-[var(--surface)] border border-dashed border-border rounded-lg px-2 py-2 text-xs text-[var(--text-secondary)] text-center hover:bg-[var(--glass-hover)] transition-colors">
-                                        Click to Upload File
+                                     <div className="w-full bg-[var(--surface)] border border-dashed border-border rounded-lg px-2 py-2 text-xs text-[var(--text-secondary)] text-center hover:bg-[var(--glass-hover)] transition-colors flex items-center justify-center gap-2">
+                                        {isUploading ? <Loader2 size={12} className="animate-spin" /> : 'Click to Upload File'}
                                      </div>
                                 </div>
                             )}
 
                             <button 
                                 onClick={handleAddResource}
-                                disabled={!newResTitle}
+                                disabled={!newResTitle || isUploading}
                                 className="w-full py-2 bg-[var(--surface)] border border-border rounded-lg text-xs font-bold text-[var(--text-primary)] hover:bg-[var(--glass-hover)] disabled:opacity-50 transition-colors"
                             >
                                 + Add Resource
@@ -409,7 +390,7 @@ const DrillDetailPanel: React.FC<DrillDetailPanelProps> = ({ drill, onClose, onU
                                 </h3>
                                 <div className="grid grid-cols-1 gap-2">
                                     {drill.resources.map(r => (
-                                        <div key={r.id} className="flex items-center justify-between p-3 bg-[var(--glass)] border border-border rounded-lg hover:border-primary/40 transition-colors cursor-pointer group">
+                                        <a key={r.id} href={r.url} target="_blank" rel="noopener noreferrer" className="flex items-center justify-between p-3 bg-[var(--glass)] border border-border rounded-lg hover:border-primary/40 transition-colors cursor-pointer group">
                                             <div className="flex items-center gap-3">
                                                 <div className={`p-2 rounded-lg ${
                                                     r.type === 'video' ? 'bg-primary/10 text-primary' :
@@ -426,7 +407,7 @@ const DrillDetailPanel: React.FC<DrillDetailPanelProps> = ({ drill, onClose, onU
                                                 </div>
                                             </div>
                                             <ExternalLink size={14} className="text-[var(--text-secondary)] group-hover:text-primary" />
-                                        </div>
+                                        </a>
                                     ))}
                                 </div>
                             </div>
@@ -609,12 +590,13 @@ const CreateDrillModal: React.FC<CreateDrillModalProps> = ({ onClose, onSave }) 
         description: '',
         image: ''
     });
+    const [isUploading, setIsUploading] = useState(false);
 
     const handleSubmit = () => {
         if (!formData.title) return;
         
         const newDrill: Drill = {
-            id: Math.random().toString(),
+            id: '', // Generated by firestore
             title: formData.title || 'Untitled Drill',
             category: formData.category as DrillCategory,
             difficulty: formData.difficulty as DrillDifficulty,
@@ -628,10 +610,20 @@ const CreateDrillModal: React.FC<CreateDrillModalProps> = ({ onClose, onSave }) 
         onSave(newDrill);
     };
 
-    const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
-            // In a real app, upload to server. Here we use object URL
-            setFormData({ ...formData, image: URL.createObjectURL(e.target.files[0]) });
+            const file = e.target.files[0];
+            setIsUploading(true);
+            try {
+                const storageRef = ref(storage, `drills/images/${Date.now()}_${file.name}`);
+                await uploadBytes(storageRef, file);
+                const url = await getDownloadURL(storageRef);
+                setFormData({ ...formData, image: url });
+            } catch (error) {
+                console.error("Upload failed", error);
+            } finally {
+                setIsUploading(false);
+            }
         }
     }
 
@@ -729,18 +721,24 @@ const CreateDrillModal: React.FC<CreateDrillModalProps> = ({ onClose, onSave }) 
                                 <img src={formData.image} alt="Preview" className="w-full h-full object-cover" />
                             ) : (
                                 <>
-                                    <ImageIcon size={24} className="mb-2 opacity-50" />
-                                    <span className="text-xs">Click to upload diagram/photo</span>
+                                    {isUploading ? <Loader2 size={24} className="animate-spin mb-2" /> : <ImageIcon size={24} className="mb-2 opacity-50" />}
+                                    <span className="text-xs">{isUploading ? 'Uploading...' : 'Click to upload diagram/photo'}</span>
                                 </>
                             )}
-                            <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" accept="image/*" onChange={handleImageUpload} />
+                            <input 
+                                type="file" 
+                                className="absolute inset-0 opacity-0 cursor-pointer" 
+                                accept="image/*" 
+                                onChange={handleImageUpload} 
+                                disabled={isUploading}
+                            />
                         </div>
                     </div>
                 </div>
 
                 <div className="p-6 border-t border-border bg-[var(--glass)] flex justify-end gap-3">
                     <button onClick={onClose} className="px-4 py-2 rounded-lg text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--glass-hover)]">Cancel</button>
-                    <button onClick={handleSubmit} className="px-4 py-2 rounded-lg text-sm font-bold bg-primary text-primary-foreground hover:opacity-90 shadow-lg shadow-primary/20">Add to Library</button>
+                    <button onClick={handleSubmit} disabled={isUploading} className="px-4 py-2 rounded-lg text-sm font-bold bg-primary text-primary-foreground hover:opacity-90 shadow-lg shadow-primary/20 disabled:opacity-50">Add to Library</button>
                 </div>
             </motion.div>
         </div>
@@ -749,24 +747,43 @@ const CreateDrillModal: React.FC<CreateDrillModalProps> = ({ onClose, onSave }) 
 
 const DrillLibrary: React.FC = () => {
     // State management for Drills to support updates
-    const [drills, setDrills] = useState<Drill[]>(MOCK_DRILLS);
+    const [drills, setDrills] = useState<Drill[]>([]);
     const [filter, setFilter] = useState<DrillCategory | 'All'>('All');
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedDrillId, setSelectedDrillId] = useState<string | null>(null);
     const [isCreateOpen, setCreateOpen] = useState(false);
 
-    const selectedDrill = drills.find(d => d.id === selectedDrillId);
+    useEffect(() => {
+        const q = query(collection(db, 'drills'), orderBy('title'));
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Drill));
+            setDrills(data);
+        });
+        return () => unsubscribe();
+    }, []);
 
-    const handleUpdateDrill = (updatedDrill: Drill) => {
-        setDrills(prev => prev.map(d => d.id === updatedDrill.id ? updatedDrill : d));
+    const selectedDrill = drills.find(d => d.id === selectedDrillId) || MOCK_DRILLS.find(d => d.id === selectedDrillId);
+
+    const handleUpdateDrill = async (updatedDrill: Drill) => {
+        // Only update if it's a real firestore drill, otherwise we can't persistent update mock data easily here without seeding first.
+        // For this demo, we will only attempt update if it looks like a firestore doc (long ID usually, but here checking existing list)
+        if (drills.find(d => d.id === updatedDrill.id)) {
+             await updateDoc(doc(db, 'drills', updatedDrill.id), { ...updatedDrill });
+        } else {
+            console.warn("Cannot update mock drill in database directly.");
+        }
     };
 
-    const handleCreateDrill = (newDrill: Drill) => {
-        setDrills(prev => [newDrill, ...prev]);
+    const handleCreateDrill = async (newDrill: Drill) => {
+        const { id, ...drillData } = newDrill;
+        await addDoc(collection(db, 'drills'), drillData);
         setCreateOpen(false);
     };
 
-    const filteredDrills = drills.filter(d => 
+    // Use mock drills if database is empty to show content
+    const displayDrills = drills.length > 0 ? drills : MOCK_DRILLS;
+
+    const filteredDrills = displayDrills.filter(d => 
         (filter === 'All' || d.category === filter) &&
         d.title.toLowerCase().includes(searchTerm.toLowerCase())
     );
@@ -777,7 +794,7 @@ const DrillLibrary: React.FC = () => {
             <div className="flex flex-col md:flex-row justify-between items-end mb-10 gap-6">
                 <div>
                     <h1 className="text-3xl font-semibold text-[var(--text-primary)] tracking-tight">Drill Library</h1>
-                    <p className="text-[var(--text-secondary)] text-sm mt-1">Access over 500+ elite coaching drills and sessions.</p>
+                    <p className="text-[var(--text-secondary)] text-sm mt-1">Access elite coaching drills and sessions.</p>
                 </div>
                 <div className="flex gap-3 w-full md:w-auto">
                     <div className="relative flex-1 md:w-72">
@@ -818,13 +835,19 @@ const DrillLibrary: React.FC = () => {
 
             {/* Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {filteredDrills.map((drill) => (
-                    <DrillCard 
-                        key={drill.id} 
-                        drill={drill} 
-                        onClick={() => setSelectedDrillId(drill.id)} 
-                    />
-                ))}
+                {filteredDrills.length > 0 ? (
+                    filteredDrills.map((drill) => (
+                        <DrillCard 
+                            key={drill.id} 
+                            drill={drill} 
+                            onClick={() => setSelectedDrillId(drill.id)} 
+                        />
+                    ))
+                ) : (
+                    <div className="col-span-full py-12 text-center text-[var(--text-secondary)] border-2 border-dashed border-border rounded-xl">
+                        No drills found. {displayDrills.length === 0 && 'Library is empty.'}
+                    </div>
+                )}
             </div>
 
             {/* Detail Overlay */}

@@ -1,6 +1,7 @@
+
 import React from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { LayoutGrid, Users, Settings, CalendarDays, Clipboard, Hexagon, Sun, Moon, ChevronRight, BookOpen, Layers, X, Home, MessageSquare } from 'lucide-react';
+import { LayoutGrid, Users, Settings, CalendarDays, Clipboard, Hexagon, Sun, Moon, ChevronRight, BookOpen, Layers, X, Home, MessageSquare, Globe } from 'lucide-react';
 import { NavItem } from '../types';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
@@ -13,6 +14,7 @@ const navItems: NavItem[] = [
   { icon: Layers, label: 'Practice Plan', path: '/planning' },
   { icon: BookOpen, label: 'Drill Library', path: '/drills' },
   { icon: Users, label: 'Team Roster', path: '/roster' },
+  { icon: Globe, label: 'Transfer Portal', path: '/transfers' },
   { icon: CalendarDays, label: 'Schedule', path: '/schedule' },
   { icon: MessageSquare, label: 'Team Comms', path: '/team' },
   { icon: Settings, label: 'Settings', path: '/settings' },

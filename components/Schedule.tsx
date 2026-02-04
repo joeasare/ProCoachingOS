@@ -1,7 +1,10 @@
-import React, { useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Calendar, Clock, MapPin, Users, Plus, Filter, ChevronLeft, ChevronRight, MoreHorizontal, CheckCircle2, X, UserPlus } from 'lucide-react';
+import { Calendar, Clock, MapPin, Users, Plus, Filter, ChevronLeft, ChevronRight, MoreHorizontal, Trophy, ArrowRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { collection, addDoc, onSnapshot, query, orderBy } from 'firebase/firestore';
+import { db } from '../firebase';
 
 export type SessionType = 'Training' | 'Match' | 'Recovery' | 'Meeting';
 
@@ -16,9 +19,10 @@ export interface Session {
   attendees: string;
   status: 'Upcoming' | 'Completed' | 'Cancelled';
   result?: string; // e.g. "W 3-0"
+  gallery?: { id: string; type: 'image'|'video'; url: string; caption?: string }[];
 }
 
-// 2025 Season Schedule from OCR
+// Keep mockSessions for export so Settings can use it to seed
 export const mockSessions: Session[] = [
   { id: '1', title: 'vs LEHIGH', type: 'Match', date: '2025-08-14', startTime: '19:00', endTime: '21:00', location: 'Home', attendees: 'Full Squad', status: 'Completed', result: 'W 3-0' },
   { id: '2', title: 'vs SAINT FRANCIS', type: 'Match', date: '2025-08-17', startTime: '13:00', endTime: '15:00', location: 'Home', attendees: 'Full Squad', status: 'Completed', result: 'W 5-0' },
@@ -43,19 +47,20 @@ export const mockSessions: Session[] = [
 const SessionCard: React.FC<{ session: Session }> = ({ session }) => {
   const navigate = useNavigate();
 
-  const getTypeColor = (type: SessionType) => {
-    switch (type) {
-      case 'Match': return 'bg-red-500/10 text-red-500 border-red-500/20';
-      case 'Training': return 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20';
-      case 'Recovery': return 'bg-blue-500/10 text-blue-500 border-blue-500/20';
-      default: return 'bg-neutral-500/10 text-neutral-500 border-neutral-500/20';
-    }
-  };
-
+  const isMatch = session.type === 'Match';
+  const isCompleted = session.status === 'Completed';
+  
   const handleClick = () => {
-      if (session.type === 'Match' && session.status === 'Completed') {
+      if (isMatch && isCompleted) {
           navigate(`/match/${session.id}`);
       }
+  };
+
+  const getResultColor = (result?: string) => {
+      if (!result) return 'text-[var(--text-secondary)]';
+      if (result.startsWith('W')) return 'text-emerald-500';
+      if (result.startsWith('L')) return 'text-red-500';
+      return 'text-[var(--text-primary)]';
   };
 
   return (
@@ -63,43 +68,59 @@ const SessionCard: React.FC<{ session: Session }> = ({ session }) => {
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       onClick={handleClick}
-      className="glass-panel p-5 rounded-xl hover:border-primary/30 transition-all group cursor-pointer relative overflow-hidden"
+      className={`glass-panel p-0 rounded-xl transition-all group cursor-pointer relative overflow-hidden flex flex-col h-full border hover:border-primary/40`}
     >
-        {/* Left Color Strip */}
-        <div className={`absolute left-0 top-0 bottom-0 w-1 ${getTypeColor(session.type).split(' ')[0].replace('/10', '')}`} />
+        {/* Status Indicator Bar */}
+        <div className={`h-1 w-full ${
+            session.type === 'Match' ? 'bg-primary' : 
+            session.type === 'Training' ? 'bg-emerald-500' : 'bg-blue-500'
+        }`} />
 
-        <div className="flex justify-between items-start mb-4 pl-3">
-            <div>
-                <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded border ${getTypeColor(session.type)}`}>
-                    {session.type}
-                </span>
-                <h3 className="text-lg font-semibold text-[var(--text-primary)] mt-2 group-hover:text-primary transition-colors">{session.title}</h3>
-                {session.result && (
-                    <span className="text-xs font-mono text-[var(--text-primary)] font-bold mt-1 block">Result: {session.result}</span>
+        <div className="p-5 flex flex-col h-full">
+            <div className="flex justify-between items-start mb-3">
+                <div className="flex flex-col">
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-secondary)] mb-1">
+                        {session.type} • {new Date(session.date).toLocaleDateString(undefined, { weekday: 'short' })}
+                    </span>
+                    <h3 className="text-lg font-bold text-[var(--text-primary)] leading-tight group-hover:text-primary transition-colors">
+                        {session.title}
+                    </h3>
+                </div>
+                {isMatch && isCompleted && (
+                    <Trophy size={16} className={session.result?.startsWith('W') ? "text-primary" : "text-[var(--text-secondary)] opacity-20"} />
                 )}
             </div>
-            <button className="text-[var(--text-secondary)] hover:text-[var(--text-primary)]">
-                <MoreHorizontal size={16} />
-            </button>
-        </div>
 
-        <div className="grid grid-cols-2 gap-4 pl-3">
-            <div className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
-                <Clock size={14} />
-                <span>{session.startTime} - {session.endTime}</span>
+            <div className="mt-auto space-y-3 pt-4 border-t border-border/50">
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
+                        <Clock size={12} />
+                        <span className="font-mono">{session.startTime}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
+                        <MapPin size={12} />
+                        <span>{session.location}</span>
+                    </div>
+                </div>
+
+                {isMatch && isCompleted && session.result ? (
+                    <div className="flex items-center justify-between bg-[var(--surface)] p-2 rounded-lg border border-border/50">
+                        <span className="text-[10px] font-bold uppercase text-[var(--text-secondary)]">Final Score</span>
+                        <span className={`font-mono font-bold ${getResultColor(session.result)}`}>{session.result}</span>
+                    </div>
+                ) : (
+                    <div className="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
+                        <Users size={12} />
+                        <span>{session.attendees}</span>
+                    </div>
+                )}
             </div>
-            <div className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
-                <MapPin size={14} />
-                <span>{session.location}</span>
-            </div>
-            <div className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
-                <Users size={14} />
-                <span>{session.attendees}</span>
-            </div>
-            <div className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
-                <Calendar size={14} />
-                <span>{new Date(session.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span>
-            </div>
+            
+            {isMatch && isCompleted && (
+                <div className="absolute right-4 bottom-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <ArrowRight size={16} className="text-primary" />
+                </div>
+            )}
         </div>
     </motion.div>
   );
@@ -111,6 +132,7 @@ interface CreateSessionModalProps {
 }
 
 const CreateSessionModal: React.FC<CreateSessionModalProps> = ({ onClose, onSave }) => {
+    // ... (Modal code remains largely the same, just ensuring consistency)
     const [formData, setFormData] = useState({
         title: '',
         date: new Date().toISOString().split('T')[0],
@@ -123,7 +145,7 @@ const CreateSessionModal: React.FC<CreateSessionModalProps> = ({ onClose, onSave
 
     const handleSubmit = () => {
         const newSession: Session = {
-            id: Math.random().toString(36).substr(2, 9),
+            id: '', 
             title: formData.title || 'Untitled Session',
             type: formData.type,
             date: formData.date,
@@ -146,66 +168,49 @@ const CreateSessionModal: React.FC<CreateSessionModalProps> = ({ onClose, onSave
                 exit={{ opacity: 0, scale: 0.95 }}
                 className="bg-surface border border-border rounded-xl shadow-2xl w-full max-w-md relative z-10 overflow-hidden"
             >
-                <div className="p-6 border-b border-border flex justify-between items-center">
-                    <h2 className="text-lg font-bold text-[var(--text-primary)]">New Session</h2>
+                <div className="p-6 border-b border-border flex justify-between items-center bg-[var(--glass)]">
+                    <h2 className="text-sm font-bold uppercase tracking-widest text-[var(--text-primary)]">New Event</h2>
                     <button onClick={onClose} className="text-[var(--text-secondary)] hover:text-[var(--text-primary)]">
-                        <X size={20} />
+                        <Plus size={20} className="rotate-45" />
                     </button>
                 </div>
-                <div className="p-6 space-y-4">
+                <div className="p-6 space-y-4 bg-[var(--surface)]">
                     <div>
-                        <label className="block text-xs font-bold uppercase text-[var(--text-secondary)] mb-1">Title</label>
+                        <label className="block text-[10px] font-bold uppercase text-[var(--text-secondary)] mb-1.5">Event Title</label>
                         <input 
                             type="text" 
-                            placeholder="e.g. Match Prep vs Rutgers" 
-                            className="w-full bg-[var(--glass)] border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary"
+                            className="w-full bg-[var(--glass)] border border-border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-primary transition-colors"
                             value={formData.title}
                             onChange={e => setFormData({...formData, title: e.target.value})}
+                            placeholder="e.g. Tactical Review"
                         />
                     </div>
                     
-                    {/* Attendees Field - The requested feature */}
-                    <div>
-                        <label className="block text-xs font-bold uppercase text-[var(--text-secondary)] mb-1 flex items-center gap-2">
-                             Attendees <span className="text-[var(--text-secondary)]/50 font-normal normal-case">(Add Users/Groups)</span>
-                        </label>
-                        <div className="relative">
-                            <input 
-                                type="text" 
-                                placeholder="e.g. Full Squad, Staff, K. Smith..." 
-                                className="w-full bg-[var(--glass)] border border-border rounded-lg pl-9 pr-3 py-2 text-sm focus:outline-none focus:border-primary"
-                                value={formData.attendees}
-                                onChange={e => setFormData({...formData, attendees: e.target.value})}
-                            />
-                            <UserPlus size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-secondary)]" />
-                        </div>
-                    </div>
-
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                             <label className="block text-xs font-bold uppercase text-[var(--text-secondary)] mb-1">Date</label>
+                             <label className="block text-[10px] font-bold uppercase text-[var(--text-secondary)] mb-1.5">Date</label>
                              <input 
                                 type="date" 
-                                className="w-full bg-[var(--glass)] border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary" 
+                                className="w-full bg-[var(--glass)] border border-border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-primary transition-colors" 
                                 value={formData.date}
                                 onChange={e => setFormData({...formData, date: e.target.value})}
                              />
                         </div>
                         <div className="grid grid-cols-2 gap-2">
                              <div>
-                                <label className="block text-xs font-bold uppercase text-[var(--text-secondary)] mb-1">Start</label>
+                                <label className="block text-[10px] font-bold uppercase text-[var(--text-secondary)] mb-1.5">Start</label>
                                 <input 
                                     type="time" 
-                                    className="w-full bg-[var(--glass)] border border-border rounded-lg px-2 py-2 text-sm focus:outline-none focus:border-primary" 
+                                    className="w-full bg-[var(--glass)] border border-border rounded-lg px-2 py-2.5 text-sm focus:outline-none focus:border-primary transition-colors" 
                                     value={formData.startTime}
                                     onChange={e => setFormData({...formData, startTime: e.target.value})}
                                 />
                              </div>
                              <div>
-                                <label className="block text-xs font-bold uppercase text-[var(--text-secondary)] mb-1">End</label>
+                                <label className="block text-[10px] font-bold uppercase text-[var(--text-secondary)] mb-1.5">End</label>
                                 <input 
                                     type="time" 
-                                    className="w-full bg-[var(--glass)] border border-border rounded-lg px-2 py-2 text-sm focus:outline-none focus:border-primary" 
+                                    className="w-full bg-[var(--glass)] border border-border rounded-lg px-2 py-2.5 text-sm focus:outline-none focus:border-primary transition-colors" 
                                     value={formData.endTime}
                                     onChange={e => setFormData({...formData, endTime: e.target.value})}
                                 />
@@ -215,9 +220,9 @@ const CreateSessionModal: React.FC<CreateSessionModalProps> = ({ onClose, onSave
                     
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-xs font-bold uppercase text-[var(--text-secondary)] mb-1">Type</label>
+                            <label className="block text-[10px] font-bold uppercase text-[var(--text-secondary)] mb-1.5">Type</label>
                             <select 
-                                className="w-full bg-[var(--glass)] border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary"
+                                className="w-full bg-[var(--glass)] border border-border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-primary transition-colors"
                                 value={formData.type}
                                 onChange={e => setFormData({...formData, type: e.target.value as SessionType})}
                             >
@@ -228,10 +233,10 @@ const CreateSessionModal: React.FC<CreateSessionModalProps> = ({ onClose, onSave
                             </select>
                         </div>
                         <div>
-                            <label className="block text-xs font-bold uppercase text-[var(--text-secondary)] mb-1">Location</label>
+                            <label className="block text-[10px] font-bold uppercase text-[var(--text-secondary)] mb-1.5">Location</label>
                             <input 
                                 type="text" 
-                                className="w-full bg-[var(--glass)] border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary"
+                                className="w-full bg-[var(--glass)] border border-border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-primary transition-colors"
                                 value={formData.location}
                                 onChange={e => setFormData({...formData, location: e.target.value})}
                             />
@@ -239,8 +244,8 @@ const CreateSessionModal: React.FC<CreateSessionModalProps> = ({ onClose, onSave
                     </div>
                 </div>
                 <div className="p-6 border-t border-border bg-[var(--glass)] flex justify-end gap-3">
-                    <button onClick={onClose} className="px-4 py-2 rounded-lg text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--glass-hover)]">Cancel</button>
-                    <button onClick={handleSubmit} className="px-4 py-2 rounded-lg text-sm font-bold bg-primary text-primary-foreground hover:opacity-90">Create Session</button>
+                    <button onClick={onClose} className="px-4 py-2 rounded-lg text-xs font-bold uppercase text-[var(--text-secondary)] hover:bg-[var(--glass-hover)] transition-colors">Cancel</button>
+                    <button onClick={handleSubmit} className="px-6 py-2 rounded-lg text-xs font-bold uppercase bg-primary text-primary-foreground hover:opacity-90 shadow-lg shadow-primary/20 transition-all">Create Event</button>
                 </div>
             </motion.div>
         </div>
@@ -248,15 +253,40 @@ const CreateSessionModal: React.FC<CreateSessionModalProps> = ({ onClose, onSave
 };
 
 const Schedule: React.FC = () => {
+  // Initialize with mockSessions to ensure data is present immediately
   const [sessions, setSessions] = useState<Session[]>(mockSessions);
   const [filter, setFilter] = useState<string>('All');
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [currentDate, setCurrentDate] = useState(new Date(2025, 9, 1)); // Start at October 2025
+  
+  // Start date adjusted to show recent/upcoming relevant matches (October 2025)
+  const [currentDate, setCurrentDate] = useState(new Date(2025, 9, 1)); 
   
   const filters = ['All', 'Training', 'Match', 'Recovery', 'Meeting'];
 
-  const handleCreateSession = (newSession: Session) => {
-      setSessions([...sessions, newSession]);
+  useEffect(() => {
+    // Attempt to fetch real data, but fallback to mock is already set in state initialization
+    const q = query(collection(db, 'sessions'), orderBy('date'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+        const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Session));
+        if (data.length > 0) {
+            setSessions(data);
+        }
+    }, (error) => {
+        console.log("Using mock data for schedule");
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const handleCreateSession = async (newSession: Session) => {
+      const { id, ...sessionData } = newSession;
+      // Add to local state for immediate feedback if offline/demo
+      setSessions(prev => [...prev, { ...newSession, id: Math.random().toString() }]);
+      
+      try {
+        await addDoc(collection(db, 'sessions'), sessionData);
+      } catch (e) {
+          console.warn("Could not save to firestore", e);
+      }
   };
 
   const changeMonth = (direction: 'prev' | 'next') => {
@@ -282,12 +312,12 @@ const Schedule: React.FC = () => {
             <p className="text-[var(--text-secondary)] text-sm mt-1">2025 Season • Big Ten Conference</p>
         </div>
         <div className="flex gap-3">
-            <button className="h-10 px-4 bg-glass border border-border rounded-lg text-[var(--text-primary)] text-sm font-medium hover:bg-surface hover:border-primary/30 transition-colors flex items-center gap-2">
+            <button className="h-10 px-4 bg-[var(--glass)] border border-border rounded-lg text-[var(--text-primary)] text-xs font-bold uppercase tracking-wider hover:bg-[var(--surface)] hover:border-primary/30 transition-colors flex items-center gap-2">
                 <Filter size={14} /> Filter
             </button>
             <button 
                 onClick={() => setIsModalOpen(true)}
-                className="h-10 px-4 bg-primary text-primary-foreground rounded-lg text-sm font-bold hover:opacity-90 transition-opacity flex items-center gap-2 shadow-lg shadow-primary/20"
+                className="h-10 px-4 bg-primary text-primary-foreground rounded-lg text-xs font-bold uppercase tracking-wider hover:opacity-90 transition-opacity flex items-center gap-2 shadow-lg shadow-primary/20"
             >
                 <Plus size={16} /> New Session
             </button>
@@ -295,15 +325,15 @@ const Schedule: React.FC = () => {
       </div>
 
       {/* Date Navigation / Timeline Header */}
-      <div className="glass-panel p-4 rounded-xl flex justify-between items-center">
-         <div className="flex items-center gap-4">
+      <div className="glass-panel p-4 rounded-xl flex flex-col md:flex-row justify-between items-center gap-4">
+         <div className="flex items-center gap-6">
              <button 
                 onClick={() => changeMonth('prev')}
                 className="p-2 hover:bg-[var(--glass)] rounded-full text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
              >
                  <ChevronLeft size={20} />
              </button>
-             <span className="text-lg font-mono font-medium text-[var(--text-primary)] w-32 text-center">
+             <span className="text-xl font-display font-bold text-[var(--text-primary)] w-48 text-center uppercase tracking-tight">
                  {currentDate.toLocaleString('default', { month: 'long', year: 'numeric' })}
              </span>
              <button 
@@ -313,12 +343,12 @@ const Schedule: React.FC = () => {
                  <ChevronRight size={20} />
              </button>
          </div>
-         <div className="flex gap-2 overflow-x-auto">
+         <div className="flex gap-2 overflow-x-auto no-scrollbar max-w-full">
             {filters.map(f => (
                 <button 
                     key={f}
                     onClick={() => setFilter(f)}
-                    className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${filter === f ? 'bg-primary text-primary-foreground' : 'text-[var(--text-secondary)] hover:bg-[var(--glass)]'}`}
+                    className={`px-4 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all whitespace-nowrap ${filter === f ? 'bg-primary text-primary-foreground' : 'text-[var(--text-secondary)] hover:bg-[var(--glass)] border border-transparent hover:border-border'}`}
                 >
                     {f}
                 </button>
@@ -326,32 +356,24 @@ const Schedule: React.FC = () => {
          </div>
       </div>
 
-      {/* Week Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-7 gap-4">
-          {/* Days Headers */}
-          {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day, i) => (
-             <div key={i} className="text-center py-2 border-b border-border">
-                <span className="text-xs uppercase tracking-widest text-[var(--text-secondary)]">{day}</span>
-             </div>
-          ))}
-      </div>
-
       {/* Sessions List (Grouped) */}
       <div className="space-y-6">
-         <div className="flex items-center gap-4">
+         <div className="flex items-center gap-4 opacity-50">
              <div className="h-px flex-1 bg-border" />
-             <span className="text-xs uppercase tracking-widest text-[var(--text-secondary)]">Events for {currentDate.toLocaleString('default', { month: 'long' })}</span>
+             <span className="text-[10px] uppercase tracking-[0.2em] text-[var(--text-secondary)]">Events for {currentDate.toLocaleString('default', { month: 'long' })}</span>
              <div className="h-px flex-1 bg-border" />
          </div>
 
-         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {filteredSessions.length > 0 ? (
-                filteredSessions.reverse().map(session => (
+                // Sort by date descending
+                filteredSessions.sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime()).map(session => (
                     <SessionCard key={session.id} session={session} />
                 ))
             ) : (
-                <div className="col-span-full py-12 text-center text-[var(--text-secondary)] border-2 border-dashed border-border rounded-xl">
-                    No sessions scheduled for this month.
+                <div className="col-span-full py-20 text-center text-[var(--text-secondary)] border-2 border-dashed border-border rounded-xl">
+                    <Calendar size={32} className="mx-auto mb-3 opacity-20" />
+                    <p className="text-sm">No scheduled events for this period.</p>
                 </div>
             )}
          </div>

@@ -1,3 +1,4 @@
+
 import React, { useRef } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { Float, Environment } from '@react-three/drei';
@@ -9,12 +10,42 @@ declare global {
     interface IntrinsicElements {
       group: any;
       mesh: any;
-      icosahedronGeometry: any;
-      meshBasicMaterial: any;
-      meshStandardMaterial: any;
-      ringGeometry: any;
-      fog: any;
+      line: any;
+      lineLoop: any;
+      lineSegments: any;
+      pointLight: any;
+      directionalLight: any;
+      spotLight: any;
       ambientLight: any;
+      fog: any;
+      color: any;
+      // Geometries
+      planeGeometry: any;
+      bufferGeometry: any;
+      boxGeometry: any;
+      sphereGeometry: any;
+      cylinderGeometry: any;
+      coneGeometry: any;
+      circleGeometry: any;
+      ringGeometry: any;
+      torusKnotGeometry: any;
+      icosahedronGeometry: any;
+      // Materials
+      meshStandardMaterial: any;
+      meshBasicMaterial: any;
+      meshPhysicalMaterial: any;
+      lineBasicMaterial: any;
+      // Attributes
+      float32BufferAttribute: any;
+      // Catch-all removed to prevent duplicate index signature
+    }
+  }
+  // Support for React 18+ JSX namespace
+  namespace React {
+    namespace JSX {
+      interface IntrinsicElements {
+        // Catch-all removed to prevent duplicate index signature
+      }
     }
   }
 }
